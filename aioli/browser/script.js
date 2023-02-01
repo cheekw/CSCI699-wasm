@@ -34,7 +34,7 @@ for (let i = 0; i < rounds; i++) {
   const end = Date.now();
   const duration = end - start;
 
-  const message = `kalgin ran ${tries} time(s) in ${duration} ms`;
+  const message = `kalign ran ${tries} time(s) in ${duration} ms`;
   log(message);
 }
 
