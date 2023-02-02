@@ -18,11 +18,7 @@ async function mountData(data) {
   await CLI.mount(data);
 }
 
-async function run() {
-  const rounds = 5;
-
-  for (let i = 0; i < rounds; i++) {
-    const tries = Math.pow(10, i);
+async function run(tries) {
 
     document.getElementById("output").innerHTML = "Loading...";
     let message = `running ${tries} time(s) ...`;
@@ -43,7 +39,6 @@ async function run() {
 
     message = `kalign ran ${tries} time(s) in ${duration} ms`;
     log(message);
-  }
 
   log('Done');
 }
@@ -55,17 +50,29 @@ function log(text) {
   console.log(text)
 }
 
+function clearLogs(){
+  let logs = document.getElementById("logs");
+  while (logs.firstChild) {
+    logs.removeChild(logs.firstChild);
+  }
+  let box = document.getElementById("output");
+  while (box.firstChild) {
+    box.removeChild(box.firstChild);
+  }
+}
+
 async function submitForm(e) {
   e.preventDefault();
   const formData = {
     name: document.getElementById("name").value,
     data: document.getElementById("data").value,
   };
-
+  const tries = document.getElementById("reps").value;
   document.getElementById("action").disabled = true;
   await mountData(formData);
-  await run();
+  await run(tries);
   document.getElementById("action").disabled = false;
 }
 
 document.getElementById('dataForm').addEventListener("submit", submitForm);
+document.getElementById('clearLogs').addEventListener("click", clearLogs);
