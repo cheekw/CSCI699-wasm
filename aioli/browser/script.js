@@ -15,12 +15,12 @@ KYYELARKERQLHMQLYPGWSARDNYGKKKKRKREK`;
 const CLI = await new Aioli(["kalign/3.3.1"]);
 
 async function mountData(data) {
-  await CLI.mount(data);
+    await CLI.mount(data);
 }
 
 async function run(tries) {
-
     document.getElementById("output").innerHTML = "Loading...";
+
     let message = `running ${tries} time(s) ...`;
     log(message);
 
@@ -34,44 +34,36 @@ async function run(tries) {
 
     const end = Date.now();
     const duration = end - start;
+
     document.getElementById("output").innerHTML = result;
-
-
     message = `kalign ran ${tries} time(s) in ${duration} ms`;
     log(message);
-
-  log('Done');
+    log('Done');
 }
 
 function log(text) {
-  const pNode = document.createElement('p');
-  pNode.innerText = text;
-  document.getElementById("logs").append(pNode);
-  console.log(text)
+    const pNode = document.createElement('p');
+    pNode.innerText = text;
+    document.getElementById("logs").append(pNode);
+    console.log(text)
 }
 
 function clearLogs(){
-  let logs = document.getElementById("logs");
-  while (logs.firstChild) {
-    logs.removeChild(logs.firstChild);
-  }
-  let box = document.getElementById("output");
-  while (box.firstChild) {
-    box.removeChild(box.firstChild);
-  }
+    document.getElementById("logs").innerHTML = "";
+    document.getElementById("output").innerHTML = "";
 }
 
 async function submitForm(e) {
-  e.preventDefault();
-  const formData = {
-    name: document.getElementById("name").value,
-    data: document.getElementById("data").value,
-  };
-  const tries = document.getElementById("reps").value;
-  document.getElementById("action").disabled = true;
-  await mountData(formData);
-  await run(tries);
-  document.getElementById("action").disabled = false;
+    e.preventDefault();
+    const formData = {
+        name: document.getElementById("name").value,
+        data: document.getElementById("data").value,
+    };
+    const tries = document.getElementById("reps").value;
+    document.getElementById("action").disabled = true;
+    await mountData(formData);
+    await run(tries);
+    document.getElementById("action").disabled = false;
 }
 
 document.getElementById('dataForm').addEventListener("submit", submitForm);
