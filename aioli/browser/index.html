@@ -7,8 +7,20 @@
 </head>
 
 <body>
+  <form id="dataForm">
+  <div>
+    <label for="name">Name:</label>
+    <input type="text" id="name" name="name">
+  </div>
+  <div>
+    <label for="data">Data:</label>
+    <textarea id="data" name="data" rows="15" cols="75"></textarea>
+  </div>
+  <button id="action" type="submit">Submit</button>
+</form>
+
   <h4>Output of <code>kalign</code>:</h4>
-  <pre id="output">Loading...</pre>
+  <pre id="output"></pre>
 
   <h4>Logs:</h4>
   <pre id="logs"></pre>
