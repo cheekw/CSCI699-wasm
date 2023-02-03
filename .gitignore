@@ -6,3 +6,11 @@ node_modules
 
 # Jupyter Notebook
 .ipynb_checkpoints
+
+# Rust
+debug/
+target/
+Cargo.lock
+**/*.rs.bk
+*.pdb
+

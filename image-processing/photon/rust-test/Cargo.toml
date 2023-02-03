@@ -1,0 +1,11 @@
+[package]
+name = "rust-test"
+version = "0.1.0"
+edition = "2021"
+authors = ["victor chee <kwuanwei@usc.edu>"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+serde_json = "1.0.59"
+photon-rs = "0.3.1"
