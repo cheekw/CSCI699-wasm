@@ -16,7 +16,7 @@ fn main() {
     }"#;
     // let v: Value = serde_json::from_str(data)?;
 
-    let mut i: u32 = 1;
+    let mut i: u32 = 0;
     while i < 5 {
         let base: i32 = 10;
         let curr: i32 = base.pow(i);
