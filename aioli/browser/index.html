@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <script src="https://biowasm.com/cdn/v3/aioli.js"></script>
+  <script type="module" src="script.js"></script>
+
+  <style>
+    .container {
+      display: flex;
+      gap: 32px;
+    }
+  </style>
+</head>
+
+<body>
+<div class="container">
+  <div>
+  <form id="dataForm">
+    <div>
+      <label for="name">Name:</label>
+      <input type="text" id="name" name="name">
+    </div>
+    <div>
+      <label for="data">Data:</label>
+      <textarea id="data" name="data" rows="15" cols="75"></textarea>
+    </div>
+    <div>
+      <label for="reps">Number of repetitions:</label>
+      <input type="number" id="reps" min="1" max="10000" value="1">
+    </div>
+
+    <button id="action" type="submit">Submit</button>
+    <button id="clearLogs" type="button">Clear</button>
+  </form>
+
+  <h4>Output of <code>kalign</code>:</h4>
+  <div style="width:480px;height:280px;overflow:scroll;padding:5px;">
+    <pre id="output"></pre>
+  </div>
+</div>
+
+<div>
+  <h4>Logs:</h4>
+  <pre id="logs"></pre>
+</div>
+</div>
+</body>
+
+</html>
