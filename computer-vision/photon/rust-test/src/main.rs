@@ -1,6 +1,7 @@
 extern crate photon_rs;
 extern crate serde_json;
 use photon_rs::monochrome::grayscale;
+use photon_rs::transform;
 use photon_rs::native::open_image;
 use serde_json::{Result, Value};
 use std::fs::File;
@@ -10,12 +11,6 @@ fn main() {
     let mut img = open_image("../../data/blackcat.jpg").expect("File should open");
     let output_path = "./out.json";
 
-    let data = r#"
-    {
-        "greyscale": {}
-    }"#;
-    // let v: Value = serde_json::from_str(data)?;
-
     let mut i: u32 = 0;
     while i < 5 {
         let base: i32 = 10;
@@ -24,7 +19,7 @@ fn main() {
 
         let mut j: i32 = 1;
         while j < curr {
-            grayscale(&mut img);
+            transform::fliph(&mut img);
             j += 1;
         }
         let duration = start.elapsed();
