@@ -175,7 +175,7 @@ const testLibvips = async (libname, out) => {
   // Transformations
   im = vips.Image.newFromFile(IMAGE_PATH);
   const rot90 = async (im) => {
-    let a = await im.rot90();
+    let a = await im.scRGB2BW(im);
   };
   await testFunc(libname, 'rotate 90', rot90, out, [im]);
 
@@ -207,8 +207,8 @@ const testLibvips = async (libname, out) => {
 
 const run = async () => {
   const out = {};
-  // await testOpenCv('opencv', out);
-  // await testPhoton('photon', out);
+  await testOpenCv('opencv', out);
+  await testPhoton('photon', out);
   await testLibvips('libvips', out);
   fs.writeFile('out.json', JSON.stringify(out), (err) => {
     if (err) {
