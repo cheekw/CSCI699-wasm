@@ -81,14 +81,8 @@
          var spinnerElement = document.getElementById('spinner');
 
          var Module = {
-           preInit: function () {
-                 var fileToLoad = document.getElementById("fileToLoad").files[0];
-                 var fileReader = new FileReader();
-                 var data = fileReader.readAsArrayBuffer(fileToLoad);
-                 var stream = Module.FS.open('input.fa', 'w+');
-                 Module.FS.write(stream, data, 0, data.length, 0);
-                 Module.FS.close(stream);
-              },
+           //preInit: function () {
+           //   },
            preRun: [],
            postRun: [],
            arguments: [],
@@ -153,8 +147,8 @@
          };
          Module.setStatus('Downloading...');
          //Module["arguments"] = ["-i", "input.fa"]
+         //Module["arguments"] = ["-i", "ChR2.fa"]
          Module["arguments"] = ["--version"]
-         
          window.onerror = function() {
            Module.setStatus('Exception thrown, see JavaScript console');
            spinnerElement.style.display = 'none';
@@ -162,12 +156,33 @@
              if (text) console.error('[post-exception status] ' + text);
            };
          };
-         var script = document.createElement('script');
-         script.src = "kalign.js";
-         document.body.appendChild(script);
+         let reader = new FileReader();
+         var fileToLoad = document.getElementById("fileToLoad").files[0];
+         // exported from kalign.js
+         function on_load_callback(){
+             createMyModule(Module)
+            .then( function(md){
+                //var fileReader = new FileReader();
+
+//                function load_file(){
+//                }
+                const uint8_view = new Uint8Array(reader.result);
+                //const uint8_view = new Uint8Array(result);
+                //var data = fileReader.readAsArrayBuffer(fileToLoad);
+                md.FS.writeFile('input.fa', uint8_view)
+                //var stream = md.FS.open('input.fa', 'w+');
+                //md.FS.write(stream, data, 0, data.length, 0);
+                //md.FS.close(stream);
+                md["arguments"] = ["--seed", "12345", "-i", "input.fa"];
+                md.callMain(md.arguments)
+             });
+         }
+         //reader.addEventListener('loadend', on_load_callback);
+         reader.onload = on_load_callback
+         reader.readAsArrayBuffer(fileToLoad);
       }
     </script>
-  <!-- <script async src=kalign.js></script> -->
+    <script async src=kalign.js></script>
   </body>
 </html>
 
