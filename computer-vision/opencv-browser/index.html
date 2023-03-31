@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>OpenCV.js Performance Test</title>
+</head>
+
+<body>
+    <h2>Performance Test</h2>
+    <p id="status">OpenCV.js is loading...</p>
+    <div>
+        <div id="input">
+            <img id="imageSrc" alt="No Image" />
+            <div class="caption">imageSrc <input type="file" id="fileInput" name="file" /></div>
+        </div>
+        <div id="output" style="display: flex; flex-direction: row; flex-wrap: wrap;"></div>
+    </div>
+    <script type="text/javascript">
+        const preLoadFiles = true;
+        const HAAR_CASCADE_FACE_VPATH = './haarcascade_frontalface_default.xml';
+        const HAAR_CASCADE_FACE_PATH = './data/haarcascade_frontalface_default.xml';
+        const HAAR_CASCADE_EYE_PATH = './data/haarcascade_eye.xml';
+        const HAAR_CASCADE_EYE_VPATH = './haarcascade_eye.xml';
+        const NUM_TRIALS = 1;
+        const NUM_TIMES = 100;
+
+        const openTime = performance.now();
+        var Module = {
+            // https://emscripten.org/docs/api_reference/module.html#Module.preRun
+            preRun() {
+                if (preLoadFiles) {
+                    Module.FS_createPreloadedFile(
+                        '/',
+                        HAAR_CASCADE_FACE_VPATH,
+                        HAAR_CASCADE_FACE_PATH,
+                        true,
+                        false
+                    );
+                    Module.FS_createPreloadedFile(
+                        '/',
+                        HAAR_CASCADE_EYE_VPATH,
+                        HAAR_CASCADE_EYE_PATH,
+                        true,
+                        false
+                    );
+                }
+            },
+            // https://emscripten.org/docs/api_reference/module.html#Module.onRuntimeInitialized
+            onRuntimeInitialized() {
+                // OpenCV.js is ready to be used
+                const loadTime = performance.now() - openTime;
+                console.log(`LOAD TIME: ${loadTime}ms`);
+                document.getElementById('status').innerHTML = 'OpenCV.js is ready.';
+
+                const cv = Module;
+
+                let imgElement = document.getElementById('imageSrc');
+                let inputElement = document.getElementById('fileInput');
+
+                inputElement.addEventListener(
+                    'change',
+                    (e) => {
+                        imgElement.src = URL.createObjectURL(e.target.files[0]);
+                    },
+                    false
+                );
+
+                const testFunc = (libname, funcName, func, json, args) => {
+                    json[libname][funcName] = {};
+                    let sum = 0;
+                    console.log('TRIAL START');
+                    for (let i = 1; i <= NUM_TRIALS; i++) {
+                        let printOut = `${libname} trial number: ${i}\n`;
+                        let start = performance.now();
+                        for (let j = 1; j <= NUM_TIMES; j++) {
+                            func(...args);
+                        }
+                        let end = performance.now();
+                        let time = end - start;
+                        sum += time;
+                        printOut += `\t${funcName} time: ${time}ms\n`;
+                        printOut += `\tfinished ${funcName} ${NUM_TIMES} times\n`;
+                        console.log(printOut);
+                    }
+                    const average = sum / NUM_TRIALS;
+                    console.log(`\tAVG TIME: ${average}ms`);
+                    console.log('TRIAL END');
+                    json[libname][funcName] = { ms: average };
+                };
+
+                const outputDiv = document.getElementById('output');
+
+                const createCanvasOutput = (funcName, dst) => {
+                    const div = document.createElement('div'); // create div
+                    const label = document.createElement('div'); // create label
+                    const canvas = document.createElement('canvas'); // create canvas
+                    const breakElement = document.createElement('br'); // create canvas
+                    label.innerHTML = funcName; // assign content
+                    canvas.id = funcName; // assign id
+                    div.style = 'display: flex; flex-direction: column; align-items: center; margin: 12px'; // assign style
+                    div.appendChild(label);
+                    div.appendChild(canvas);
+                    outputDiv.appendChild(div);
+                    outputDiv.appendChild(breakElement);
+                    cv.imshow(funcName, dst);
+                };
+
+                const testAndCreateCanvas = (libname, funcName, func, json, dst, args) => {
+                    testFunc(libname, funcName, func, json, args);
+                    createCanvasOutput(funcName, dst);
+                };
+
+                const opencvHaarCascade = (src, gray, faces, faceCascade, eyes, eyeCascade, msize) => {
+                    faceCascade.detectMultiScale(gray, faces, 1.1, 3, 0, msize, msize);
+                    for (let i = 0; i < faces.size(); ++i) {
+                        let roiGray = gray.roi(faces.get(i));
+                        let roiSrc = src.roi(faces.get(i));
+                        let point1 = new cv.Point(faces.get(i).x, faces.get(i).y);
+                        let point2 = new cv.Point(
+                            faces.get(i).x + faces.get(i).width,
+                            faces.get(i).y + faces.get(i).height
+                        );
+                        cv.rectangle(src, point1, point2, [255, 0, 0, 255]);
+
+                        eyeCascade.detectMultiScale(roiGray, eyes);
+                        for (let j = 0; j < eyes.size(); ++j) {
+                            let point1 = new cv.Point(eyes.get(j).x, eyes.get(j).y);
+                            let point2 = new cv.Point(
+                                eyes.get(j).x + eyes.get(j).width,
+                                eyes.get(j).y + eyes.get(j).height
+                            );
+                            cv.rectangle(roiSrc, point1, point2, [0, 0, 255, 255]);
+                        }
+
+                        roiGray.delete();
+                        roiSrc.delete();
+                    }
+                };
+
+                const runExperiment = (libname, out) => {
+                    let src = cv.imread(imgElement);
+                    let src2 = new cv.Mat();
+                    let dst = new cv.Mat();
+
+                    // /* Transformations */
+                    testAndCreateCanvas(libname, 'resize', cv.resize, out, dst, [
+                        src,
+                        dst,
+                        new cv.Size(300, 300),
+                        0,
+                        0,
+                        cv.INTER_AREA,
+                    ]);
+                    testAndCreateCanvas(libname, 'translation', cv.warpAffine, out, dst, [
+                        src,
+                        dst,
+                        cv.matFromArray(2, 3, cv.CV_64FC1, [1, 0, 50, 0, 1, 100]),
+                        new cv.Size(src.rows, src.cols),
+                        cv.INTER_LINEAR,
+                        cv.BORDER_CONSTANT,
+                        new cv.Scalar(),
+                    ]);
+                    testAndCreateCanvas(libname, 'rotate 90', cv.warpAffine, out, dst, [
+                        src,
+                        dst,
+                        cv.getRotationMatrix2D(new cv.Point(src.cols / 2, src.rows / 2), 90, 1),
+                        new cv.Size(src.rows, src.cols),
+                        cv.INTER_LINEAR,
+                        cv.BORDER_CONSTANT,
+                        new cv.Scalar(),
+                    ]);
+                    testAndCreateCanvas(libname, 'affine transformation', cv.warpAffine, out, dst, [
+                        src,
+                        dst,
+                        cv.getAffineTransform(
+                            cv.matFromArray(3, 1, cv.CV_32FC2, [0, 0, 0, 1, 1, 0]),
+                            cv.matFromArray(3, 1, cv.CV_32FC2, [0.6, 0.2, 0.1, 1.3, 1.5, 0.3])
+                        ),
+                        new cv.Size(src.rows, src.cols),
+                        cv.INTER_LINEAR,
+                        cv.BORDER_CONSTANT,
+                        new cv.Scalar(),
+                    ]);
+                    testAndCreateCanvas(libname, 'perspective transformation', cv.warpPerspective, out, dst, [
+                        src,
+                        dst,
+                        cv.getPerspectiveTransform(
+                            cv.matFromArray(4, 1, cv.CV_32FC2, [56, 65, 368, 52, 28, 387, 389, 390]),
+                            cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, 300, 0, 0, 300, 300, 300])
+                        ),
+                        new cv.Size(src.cols, src.rows),
+                        cv.INTER_LINEAR,
+                        cv.BORDER_CONSTANT,
+                        new cv.Scalar(),
+                    ]);
+
+                    /* Colorspace */
+                    testAndCreateCanvas(libname, 'grayscale', cv.cvtColor, out, dst, [
+                        src,
+                        dst,
+                        cv.COLOR_RGBA2GRAY,
+                        0,
+                    ]);
+                    let low = new cv.Mat(src.rows, src.cols, src.type(), [0, 0, 0, 0]);
+                    let high = new cv.Mat(src.rows, src.cols, src.type(), [150, 150, 150, 255]);
+                    testAndCreateCanvas(libname, 'inRange', cv.inRange, out, dst, [src, low, high, dst]);
+                    testAndCreateCanvas(libname, 'hsv', cv.cvtColor, out, dst, [src, dst, cv.COLOR_RGB2HSV, 0]);
+                    low.delete();
+                    high.delete();
+
+                    /* Thresholding */
+                    testAndCreateCanvas(libname, 'threshold', cv.threshold, out, dst, [
+                        src,
+                        dst,
+                        177,
+                        200,
+                        cv.THRESH_BINARY,
+                    ]);
+                    src2 = new cv.Mat();
+                    cv.cvtColor(src, src2, cv.COLOR_RGBA2GRAY, 0);
+                    testAndCreateCanvas(libname, 'adaptive threshold', cv.adaptiveThreshold, out, dst, [
+                        src2,
+                        dst,
+                        200,
+                        cv.ADAPTIVE_THRESH_GAUSSIAN_C,
+                        cv.THRESH_BINARY,
+                        3,
+                        2,
+                    ]);
+
+                    /* Smoothening */
+                    testAndCreateCanvas(libname, '2d convolution', cv.filter2D, out, dst, [
+                        src,
+                        dst,
+                        cv.CV_8U,
+                        cv.Mat.eye(3, 3, cv.CV_32FC1),
+                        new cv.Point(-1, -1),
+                        0,
+                        cv.BORDER_DEFAULT,
+                    ]);
+                    testAndCreateCanvas(libname, 'mean blur', cv.blur, out, dst, [
+                        src,
+                        dst,
+                        new cv.Size(25, 25),
+                        new cv.Point(-1, -1),
+                        cv.BORDER_DEFAULT,
+                    ]);
+                    testAndCreateCanvas(libname, 'gaussian blur', cv.GaussianBlur, out, dst, [
+                        src,
+                        dst,
+                        new cv.Size(25, 25),
+                        100,
+                        100,
+                        cv.BORDER_DEFAULT,
+                    ]);
+                    testAndCreateCanvas(libname, 'median blur', cv.medianBlur, out, dst, [src, dst, 25]);
+                    src2 = new cv.Mat();
+                    cv.cvtColor(src, src2, cv.COLOR_RGBA2RGB, 0);
+                    testAndCreateCanvas(libname, 'bilateral filter', cv.bilateralFilter, out, dst, [
+                        src2,
+                        dst,
+                        9,
+                        75,
+                        75,
+                        cv.BORDER_DEFAULT,
+                    ]);
+
+                    /* Morphological Operations */
+                    testAndCreateCanvas(libname, 'erosion', cv.erode, out, dst, [
+                        src,
+                        dst,
+                        cv.Mat.ones(5, 5, cv.CV_8U),
+                        new cv.Point(-1, -1),
+                        1,
+                        cv.BORDER_CONSTANT,
+                        cv.morphologyDefaultBorderValue(),
+                    ]);
+                    testAndCreateCanvas(libname, 'dilation', cv.dilate, out, dst, [
+                        src,
+                        dst,
+                        cv.Mat.ones(5, 5, cv.CV_8U),
+                        new cv.Point(-1, -1),
+                        1,
+                        cv.BORDER_CONSTANT,
+                        cv.morphologyDefaultBorderValue(),
+                    ]);
+                    testAndCreateCanvas(libname, 'opening', cv.morphologyEx, out, dst, [
+                        src,
+                        dst,
+                        cv.MORPH_OPEN,
+                        cv.Mat.ones(5, 5, cv.CV_8U),
+                        new cv.Point(-1, -1),
+                        1,
+                        cv.BORDER_CONSTANT,
+                        cv.morphologyDefaultBorderValue(),
+                    ]);
+                    testAndCreateCanvas(libname, 'closing', cv.morphologyEx, out, dst, [
+                        src,
+                        dst,
+                        cv.MORPH_CLOSE,
+                        cv.Mat.ones(5, 5, cv.CV_8U),
+                        new cv.Point(-1, -1),
+                        1,
+                        cv.BORDER_CONSTANT,
+                        cv.morphologyDefaultBorderValue(),
+                    ]);
+
+                    src2 = new cv.Mat();
+                    cv.cvtColor(src, src2, cv.COLOR_RGBA2RGB);
+                    testAndCreateCanvas(libname, 'gradient', cv.morphologyEx, out, dst, [
+                        src2,
+                        dst,
+                        cv.MORPH_GRADIENT,
+                        cv.Mat.ones(5, 5, cv.CV_8U),
+                        new cv.Point(-1, -1),
+                        1,
+                        cv.BORDER_CONSTANT,
+                        cv.morphologyDefaultBorderValue(),
+                    ]);
+                    testAndCreateCanvas(libname, 'top hat', cv.morphologyEx, out, dst, [
+                        src2,
+                        dst,
+                        cv.MORPH_TOPHAT,
+                        cv.Mat.ones(5, 5, cv.CV_8U),
+                        new cv.Point(-1, -1),
+                        1,
+                        cv.BORDER_CONSTANT,
+                        cv.morphologyDefaultBorderValue(),
+                    ]);
+                    testAndCreateCanvas(libname, 'black hat', cv.morphologyEx, out, dst, [
+                        src2,
+                        dst,
+                        cv.MORPH_BLACKHAT,
+                        cv.Mat.ones(5, 5, cv.CV_8U),
+                        new cv.Point(-1, -1),
+                        1,
+                        cv.BORDER_CONSTANT,
+                        cv.morphologyDefaultBorderValue(),
+                    ]);
+                    const getStructuringElement = () => {
+                        let M = new cv.Mat();
+                        let ksize = new cv.Size(5, 5);
+                        M = cv.getStructuringElement(cv.MORPH_CROSS, ksize);
+                        cv.morphologyEx(src2, dst, cv.MORPH_GRADIENT, M);
+                    };
+                    testAndCreateCanvas(libname, 'get structuring element', getStructuringElement, out, dst, []);
+
+                    /* Gradients */
+                    src2 = new cv.Mat();
+                    cv.cvtColor(src, src2, cv.COLOR_RGBA2GRAY, 0);
+                    testAndCreateCanvas(libname, 'sobel', cv.Sobel, out, dst, [
+                        src2,
+                        dst,
+                        cv.CV_8U,
+                        1,
+                        0,
+                        3,
+                        1,
+                        0,
+                        cv.BORDER_DEFAULT,
+                    ]);
+                    testAndCreateCanvas(libname, 'scharr', cv.Scharr, out, dst, [
+                        src2,
+                        dst,
+                        cv.CV_8U,
+                        1,
+                        0,
+                        1,
+                        0,
+                        cv.BORDER_DEFAULT,
+                    ]);
+                    testAndCreateCanvas(libname, 'laplacian', cv.Laplacian, out, dst, [
+                        src2,
+                        dst,
+                        cv.CV_8U,
+                        1,
+                        1,
+                        0,
+                        cv.BORDER_DEFAULT,
+                    ]);
+
+                    /* Canny */
+                    testAndCreateCanvas(libname, 'canny', cv.Canny, out, dst, [src, dst, 200, 100, 3, false]);
+
+                    /* Contours */
+                    const contours = () => {
+                        const src3 = new cv.Mat();
+                        cv.cvtColor(src, src2, cv.COLOR_RGBA2GRAY, 0);
+                        cv.threshold(src2, src3, 120, 200, cv.THRESH_BINARY);
+                        let contours = new cv.MatVector();
+                        let hierarchy = new cv.Mat();
+                        cv.findContours(src3, contours, hierarchy, cv.RETR_CCOMP, cv.CHAIN_APPROX_SIMPLE);
+                        // draw contours with random Scalar
+                        for (let i = 0; i < contours.size(); ++i) {
+                            let color = new cv.Scalar(Math.round(Math.random() * 255), Math.round(Math.random() * 255),
+                                Math.round(Math.random() * 255));
+                            cv.drawContours(dst, contours, i, color, 1, cv.LINE_8, hierarchy, 100);
+                        }
+                    }
+                    testAndCreateCanvas(libname, 'contours', contours, out, dst, []);
+
+                    /* Histogram */
+                    const histogram = () => {
+                        src2 = new cv.Mat();
+                        cv.cvtColor(src, src2, cv.COLOR_RGBA2GRAY, 0);
+                        let srcVec = new cv.MatVector();
+                        srcVec.push_back(src2);
+                        let accumulate = false;
+                        let channels = [0];
+                        let histSize = [256];
+                        let ranges = [0, 255];
+                        let hist = new cv.Mat();
+                        let mask = new cv.Mat();
+                        let color = new cv.Scalar(255, 255, 255);
+                        let scale = 2;
+                        // You can try more different parameters
+                        cv.calcHist(srcVec, channels, mask, hist, histSize, ranges, accumulate);
+                        let result = cv.minMaxLoc(hist, mask);
+                        let max = result.maxVal;
+                        let dst = new cv.Mat.zeros(src.rows, histSize[0] * scale,
+                            cv.CV_8UC3);
+                        // draw histogram
+                        for (let i = 0; i < histSize[0]; i++) {
+                            let binVal = hist.data32F[i] * src.rows / max;
+                            let point1 = new cv.Point(i * scale, src.rows - 1);
+                            let point2 = new cv.Point((i + 1) * scale - 1, src.rows - binVal);
+                            cv.rectangle(dst, point1, point2, color, cv.FILLED);
+                        }
+                    }
+                    testAndCreateCanvas(libname, 'histogram', histogram, out, dst, []);
+                    const equalizeHist = () => {
+                        const src3 = new cv.Mat();
+                        cv.cvtColor(src, src2, cv.COLOR_RGBA2GRAY, 0);
+                        cv.threshold(src2, src3, 120, 200, cv.THRESH_BINARY);
+                        cv.equalizeHist(src3, dst);
+                    }
+                    testAndCreateCanvas(libname, 'equalize histogram', equalizeHist, out, dst, []);
+                    const clahe = () => {
+                        const src3 = new cv.Mat();
+                        cv.cvtColor(src, src2, cv.COLOR_RGBA2GRAY, 0);
+                        cv.threshold(src2, src3, 120, 200, cv.THRESH_BINARY);
+                        let clahe = new cv.CLAHE(2.0, new cv.Size(8, 8));
+                        clahe.apply(src3, dst);
+                    }
+                    testAndCreateCanvas(libname, 'clahe', clahe, out, dst, []); // CLAHE (Contrast Limited Adaptive Histogram Equalization)
+                    // const backprojection = () => {
+                    //     const src3 = new cv.Mat();
+                    //     cv.cvtColor(src, src2, cv.COLOR_RGBA2GRAY, 0);
+                    //     cv.threshold(src2, src3, 120, 200, cv.THRESH_BINARY);
+                    //     let hsv = new cv.Mat();
+                    //     cv.cvtColor(src, hsv, cv.COLOR_RGBA2RGB);
+                    //     let hsvChannels = new cv.MatVector();
+                    //     cv.split(hsv, hsvChannels);
+                    //     let hue = hsvChannels.get(0);
+                    //     let mask = new cv.Mat();
+                    //     let histSize = 180;
+                    //     let ranges = [0, 180];
+                    //     let hist = new cv.Mat();
+                    //     let accumulate = false;
+                    //     cv.calcHist([hue], [0], mask, hist, histSize, ranges, accumulate);
+                    //     cv.normalize(hist, hist, 0, 255, cv.NORM_MINMAX);
+                    //     let backproj = new cv.Mat();
+                    //     cv.calcBackProject([hue], [0], hist, backproj, ranges, 1.0);
+                    //     cv.threshold(backproj, dst, 40, 255, cv.THRESH_BINARY);
+                    // }
+                    // testAndCreateCanvas(libname, 'backprojection', backprojection, out, dst, []);
+
+                    /* Hough Lines */
+                    // const houghLines = () => {
+                    //     const src3 = new cv.Mat();
+                    //     cv.cvtColor(src, src2, cv.COLOR_RGBA2GRAY, 0);
+                    //     cv.threshold(src2, src3, 120, 200, cv.THRESH_BINARY);
+                    //     let lines = new cv.Mat();
+                    //     cv.HoughLines(src3, lines, 1, Math.PI / 180, 150);
+                    //     for (let i = 0; i < lines.rows; ++i) {
+                    //         let rho = lines.data32F[i * 2];
+                    //         let theta = lines.data32F[i * 2 + 1];
+                    //         let a = Math.cos(theta), b = Math.sin(theta);
+                    //         let x0 = a * rho, y0 = b * rho;
+                    //         let pt1 = new cv.Point(Math.round(x0 + 1000 * (-b)), Math.round(y0 + 1000 * (a)));
+                    //         let pt2 = new cv.Point(Math.round(x0 - 1000 * (-b)), Math.round(y0 - 1000 * (a)));
+                    //         cv.line(dst, pt1, pt2, [255, 0, 0, 255]);
+                    //     }
+                    // }
+                    // testAndCreateCanvas(libname, 'hough lines', houghLines, out, dst, []);
+
+                    // /* Hough Circles */
+                    // const houghCircles = () => {
+                    //     const src3 = new cv.Mat();
+                    //     cv.cvtColor(src, src2, cv.COLOR_RGBA2GRAY, 0);
+                    //     cv.threshold(src2, src3, 120, 200, cv.THRESH_BINARY);
+                    //     let circles = new cv.Mat();
+                    //     cv.HoughCircles(src3, circles, cv.HOUGH_GRADIENT,
+                    //         1, 20, // change this value to detect circles with different distances to each other
+                    //         100, 30, 1, 30 // change the last two parameters
+                    //         // (min_radius & max_radius) to detect larger circles
+                    //     );
+
+                    /* Haar Cascade */
+                    let gray = new cv.Mat();
+                    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+                    let faces = new cv.RectVector();
+                    let faceCascade = new cv.CascadeClassifier();
+                    faceCascade.load(HAAR_CASCADE_FACE_VPATH);
+                    let eyes = new cv.RectVector();
+                    let eyeCascade = new cv.CascadeClassifier();
+                    eyeCascade.load(HAAR_CASCADE_EYE_VPATH);
+                    let msize = new cv.Size(0, 0);
+                    testAndCreateCanvas(libname, 'haar cascade faces', opencvHaarCascade, out, src, [
+                        src,
+                        gray,
+                        faces,
+                        faceCascade,
+                        eyes,
+                        eyeCascade,
+                        msize,
+                    ]);
+                    gray.delete();
+                    faces.delete();
+                    faceCascade.delete();
+
+                    src.delete();
+                    src2.delete();
+                    dst.delete();
+                };
+
+                const download = (content, fileName, contentType) => {
+                    var a = document.createElement('a');
+                    var file = new Blob([content], { type: contentType });
+                    a.href = URL.createObjectURL(file);
+                    a.download = fileName;
+                    a.click();
+                };
+
+                imgElement.onload = async () => {
+                    const libname = 'opencv';
+                    const out = { [libname]: {} };
+                    runExperiment(libname, out);
+                    download(JSON.stringify(out), 'output.json', 'text/plain');
+                };
+            },
+        };
+
+    </script>
+    <!-- <script async src="build/asmjs/opencv.js" type="text/javascript"></script> -->
+    <!-- <script async src="build/wasm/opencv.js" type="text/javascript"></script> -->
+    <script async src="build/wasm-simd/opencv.js" type="text/javascript"></script>
+    <!-- <script async src="build/wasm-mt/opencv.js" type="text/javascript"></script> -->
+    <!-- <script async src="build/wasm-simd-mt/opencv.js" type="text/javascript"></script> -->
+</body>
+
+</html>
