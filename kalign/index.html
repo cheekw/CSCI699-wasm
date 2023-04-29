@@ -10,16 +10,16 @@
       div.emscripten { text-align: center; }
       div.emscripten_border { border: 1px solid black; }
       /* the canvas *must not* have any border or padding, or mouse coords will be wrong */
-      canvas.emscripten { border: 0px none; background-color: black; }
+      canvas.emscripten { border: 0px none; background-color: white; }
 
       .spinner {
         height: 50px;
         width: 50px;
         margin: 0px auto;
-        -webkit-animation: rotation .8s linear infinite;
+      /*  -webkit-animation: rotation .8s linear infinite;
         -moz-animation: rotation .8s linear infinite;
         -o-animation: rotation .8s linear infinite;
-        animation: rotation 0.8s linear infinite;
+        animation: rotation 0.8s linear infinite; */
         border-left: 10px solid rgb(0,150,240);
         border-right: 10px solid rgb(0,150,240);
         border-bottom: 10px solid rgb(0,150,240);
@@ -49,12 +49,12 @@
   <body>
     <hr/>
     <figure style="overflow:visible;" id="spinner"><div class="spinner"></div><center style="margin-top:0.5em"><strong>emscripten</strong></center></figure>
-    <div class="emscripten" id="status">Downloading...</div>
+    <div class="emscripten" id="status">Ready</div>
     <div class="emscripten">
       <progress value="0" max="100" id="progress" hidden=1></progress>  
     </div>
     <div class="emscripten_border">
-      <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex=-1></canvas>
+    <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex=-1></canvas>  
     </div>
     <hr/>
 
@@ -72,6 +72,9 @@
     
     <hr/>
     <textarea class="emscripten" id="output" rows="8"></textarea>
+    <hr>
+    <hr/>
+    <textarea class="emscripten" id="alignmentout" rows="8"></textarea>
     <hr>
     <script type='text/javascript'>
       function run_kalign(){
@@ -145,7 +148,7 @@
              Module.setStatus(left ? 'Preparing... (' + (this.totalDependencies-left) + '/' + this.totalDependencies + ')' : 'All downloads complete.');
            }
          };
-         Module.setStatus('Downloading...');
+         //Module.setStatus('Downloading...');
          //Module["arguments"] = ["-i", "input.fa"]
          //Module["arguments"] = ["-i", "ChR2.fa"]
          Module["arguments"] = ["--version"]
@@ -166,6 +169,7 @@
 
 //                function load_file(){
 //                }
+                Module.setStatus('Running...');
                 const uint8_view = new Uint8Array(reader.result);
                 //const uint8_view = new Uint8Array(result);
                 //var data = fileReader.readAsArrayBuffer(fileToLoad);
@@ -173,14 +177,27 @@
                 //var stream = md.FS.open('input.fa', 'w+');
                 //md.FS.write(stream, data, 0, data.length, 0);
                 //md.FS.close(stream);
-                md["arguments"] = ["--seed", "12345", "-i", "input.fa"];
-                md.callMain(md.arguments)
+                md["arguments"] = ["--seed", "12345", "-i", "input.fa", "-o", "output.fa"];
+                md.callMain(md.arguments);
+
+             	var element = document.getElementById('alignmentout');
+		ali = md.FS.readFile('output.fa', {encoding: 'utf8'})
+                if (element) {
+                  element.value = ''; // clear browser cache
+                  element.value += ali + "\n";
+              //    element.scrollTop = element.scrollHeight; // focus on bottom
+                } else {
+                  console.log("alignmentout output element is null");
+                }
+                Module.setStatus('Done');
+
              });
          }
          //reader.addEventListener('loadend', on_load_callback);
          reader.onload = on_load_callback
          reader.readAsArrayBuffer(fileToLoad);
       }
+
     </script>
     <script async src=kalign.js></script>
   </body>
